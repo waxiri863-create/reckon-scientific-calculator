@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reckon — Scientific Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #1B1D23;
+    --panel: #24262E;
+    --panel-raised: #2C2F38;
+    --display-bg: #14151A;
+    --ink: #E8E6E1;
+    --ink-dim: #8B8D97;
+    --line: #34363F;
+    --amber: #E8A33D;
+    --amber-dim: #6b5327;
+    --teal: #4FA98C;
+    --danger: #D9694F;
+    --radius-btn: 10px;
+    --radius-panel: 18px;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg: #EDEAE2;
+      --panel: #F7F5EF;
+      --panel-raised: #FFFFFF;
+      --display-bg: #1E1F24;
+      --ink: #211F1C;
+      --ink-dim: #7A7770;
+      --line: #DAD5C8;
+      --amber-dim: #f0dbb0;
+    }
+  }
+  *{ box-sizing: border-box; }
+  html, body{ height: 100%; margin:0; }
+  html{ scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  .app{
+    width: 100%;
+    max-width: 920px;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 20px;
+  }
+  @media (max-width: 760px){
+    .app{ grid-template-columns: 1fr; }
+    .history{ order: 2; max-height: 260px; }
+  }
+
+  /* ---------- Header ---------- */
+  .brand{
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .brand h1{
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .brand h1 span{ color: var(--amber); }
+  .brand .tag{
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-family: var(--mono);
+  }
+
+  /* ---------- Calculator panel ---------- */
+  .calc{
+    background: var(--panel);
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--line);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .display{
+    background: var(--display-bg);
+    border-radius: 14px;
+    padding: 18px 18px 14px;
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .display .prev{
+    font-family: var(--mono);
+    font-size: 14px;
+    color: #6f7280;
+    min-height: 18px;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .display .prev::-webkit-scrollbar{ display:none; }
+  .display .cur{
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 36px;
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    line-height: 1.2;
+  }
+  .display .cur::-webkit-scrollbar{ display:none; }
+  body[data-theme-light] .display{ }
+
+  .modebar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .toggles{ display:flex; gap: 6px; }
+  .pill{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    color: var(--ink-dim);
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    padding: 6px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .pill.active{
+    color: var(--bg);
+    background: var(--amber);
+    border-color: var(--amber);
+    font-weight: 600;
+  }
+  .mem-indicator{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    opacity: 0;
+    transition: opacity .15s ease;
+  }
+  .mem-indicator.show{ opacity: 1; }
+
+  .pad{
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .pad.basic{ grid-template-columns: repeat(4, 1fr); }
+
+  button.key{
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-btn);
+    padding: 13px 4px;
+    cursor: pointer;
+    transition: transform .06s ease, background .12s ease, border-color .12s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button.key:hover{ border-color: #47495400; background: #313440; }
+  button.key:active{ transform: scale(0.95); }
+
+  button.key.fn{ color: var(--teal); font-size: 13px; }
+  button.key.op{ color: var(--amber); font-weight: 600; font-size: 17px; }
+  button.key.eq{
+    background: var(--amber);
+    color: #1B1D23;
+    border-color: var(--amber);
+    font-weight: 700;
+  }
+  button.key.eq:hover{ background: #f0ae4c; }
+  button.key.clear{ color: var(--danger); font-size: 13px; }
+  button.key.wide{ grid-column: span 2; }
+  button.key.ghost{ color: var(--ink-dim); font-size: 13px; }
+
+  .row{ display:flex; gap:8px; }
+
+  /* ---------- History panel ---------- */
+  .history{
+    background: var(--panel);
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--line);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .history h2{
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    margin: 0 0 10px;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history h2 button{
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .history h2 button:hover{ color: var(--danger); }
+  .hist-list{
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+    min-height: 120px;
+  }
+  .hist-empty{
+    color: var(--ink-dim);
+    font-size: 13px;
+    margin: auto;
+    text-align: center;
+    padding: 20px 10px;
+    line-height: 1.5;
+  }
+  .hist-item{
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .hist-item:hover{ background: var(--panel-raised); }
+  .hist-item .h-expr{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hist-item .h-res{
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--ink);
+    text-align: right;
+  }
+
+  footer{
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-dim);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="brand">
+    <h1>reckon<span>.</span></h1>
+    <div class="tag" id="clock">—</div>
+  </div>
+
+  <div class="calc">
+    <div class="display">
+      <div class="prev" id="prevLine">&nbsp;</div>
+      <div class="cur" id="curLine">0</div>
+    </div>
+
+    <div class="modebar">
+      <div class="toggles">
+        <div class="pill active" id="degBtn" data-angle="deg">DEG</div>
+        <div class="pill" id="radBtn" data-angle="rad">RAD</div>
+      </div>
+      <div class="mem-indicator" id="memIndicator">M</div>
+      <div class="toggles">
+        <div class="pill" id="mPlus">M+</div>
+        <div class="pill" id="mMinus">M−</div>
+        <div class="pill" id="mr">MR</div>
+        <div class="pill" id="mc">MC</div>
+      </div>
+    </div>
+
+    <div class="pad">
+      <button class="key clear" data-act="ac">AC</button>
+      <button class="key ghost" data-act="del">DEL</button>
+      <button class="key fn" data-ins="(">(</button>
+      <button class="key fn" data-ins=")">)</button>
+      <button class="key op" data-ins="/">÷</button>
+
+      <button class="key fn" data-ins="sin(">sin</button>
+      <button class="key fn" data-ins="cos(">cos</button>
+      <button class="key fn" data-ins="tan(">tan</button>
+      <button class="key fn" data-ins="^">x^y</button>
+      <button class="key op" data-ins="*">×</button>
+
+      <button class="key fn" data-ins="log(">log</button>
+      <button class="key fn" data-ins="ln(">ln</button>
+      <button class="key fn" data-ins="sqrt(">√</button>
+      <button class="key fn" data-ins="!">n!</button>
+      <button class="key op" data-ins="-">−</button>
+
+      <button class="key" data-ins="7">7</button>
+      <button class="key" data-ins="8">8</button>
+      <button class="key" data-ins="9">9</button>
+      <button class="key fn" data-ins="pi">π</button>
+      <button class="key op" data-ins="+">+</button>
+
+      <button class="key" data-ins="4">4</button>
+      <button class="key" data-ins="5">5</button>
+      <button class="key" data-ins="6">6</button>
+      <button class="key fn" data-ins="e">e</button>
+      <button class="key op" data-act="pm">±</button>
+
+      <button class="key" data-ins="1">1</button>
+      <button class="key" data-ins="2">2</button>
+      <button class="key" data-ins="3">3</button>
+      <button class="key fn" data-ins="%">%</button>
+      <button class="key eq" data-act="eq" style="grid-row: span 2;">=</button>
+
+      <button class="key wide" data-ins="0">0</button>
+      <button class="key" data-ins=".">.</button>
+      <button class="key ghost" data-ins="Ans">Ans</button>
+    </div>
+  </div>
+
+  <div class="history">
+    <h2>History <button id="clearHist">clear</button></h2>
+    <div class="hist-list" id="histList">
+      <div class="hist-empty">Your calculations will appear here.<br>Tap any result to reuse it.</div>
+    </div>
+  </div>
+
+  <footer>keyboard supported · deg/rad toggle · M+ / M− memory</footer>
+</div>
+
+<script>
+(function(){
+  const curLine = document.getElementById('curLine');
+  const prevLine = document.getElementById('prevLine');
+  const histList = document.getElementById('histList');
+  const memIndicator = document.getElementById('memIndicator');
+  const clockEl = document.getElementById('clock');
+
+  let expr = '';
+  let lastResult = null;
+  let memory = 0;
+  let angleMode = 'deg';
+  let history = [];
+  let justEvaluated = false;
+
+  // ---------- clock ----------
+  function tick(){
+    const d = new Date();
+    clockEl.textContent = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  }
+  tick(); setInterval(tick, 1000 * 30);
+
+  // ---------- display ----------
+  function render(){
+    curLine.textContent = expr === '' ? '0' : prettify(expr);
+    curLine.scrollLeft = curLine.scrollWidth;
+  }
+  function prettify(s){
+    return s
+      .replace(/\*/g, '×')
+      .replace(/\//g, '÷')
+      .replace(/pi/g, 'π')
+      .replace(/sqrt\(/g, '√(');
+  }
+
+  // ---------- tokenizer + parser (recursive descent) ----------
+  // Grammar handles: + - * / ^ % unary minus, parens, functions, constants, factorial postfix
+  function tokenize(input){
+    const tokens = [];
+    let i = 0;
+    const s = input.replace(/\s+/g, '');
+    const funcNames = ['sin','cos','tan','asin','acos','atan','log','ln','sqrt'];
+    while(i < s.length){
+      const c = s[i];
+      if(/[0-9.]/.test(c)){
+        let num = c; i++;
+        while(i < s.length && /[0-9.]/.test(s[i])){ num += s[i]; i++; }
+        tokens.push({type:'num', value: parseFloat(num)});
+        continue;
+      }
+      let matchedFunc = null;
+      for(const f of funcNames){
+        if(s.startsWith(f, i)){ matchedFunc = f; break; }
+      }
+      if(matchedFunc){
+        tokens.push({type:'func', value: matchedFunc});
+        i += matchedFunc.length;
+        continue;
+      }
+      if(s.startsWith('pi', i)){ tokens.push({type:'num', value: Math.PI}); i += 2; continue; }
+      if(s[i] === 'e' && !/[a-zA-Z]/.test(s[i+1]||'')){ tokens.push({type:'num', value: Math.E}); i++; continue; }
+      if(s.startsWith('Ans', i)){ tokens.push({type:'num', value: lastResult ?? 0}); i += 3; continue; }
+      if('+-*/^%()!'.includes(c)){ tokens.push({type:'op', value: c}); i++; continue; }
+      throw new Error('bad char: ' + c);
+    }
+    return tokens;
+  }
+
+  function parse(tokens){
+    let pos = 0;
+    function peek(){ return tokens[pos]; }
+    function next(){ return tokens[pos++]; }
+
+    function parseExpr(){ return parseAddSub(); }
+
+    function parseAddSub(){
+      let left = parseMulDiv();
+      while(peek() && peek().type==='op' && (peek().value==='+' || peek().value==='-')){
+        const op = next().value;
+        const right = parseMulDiv();
+        left = {type:'bin', op, left, right};
+      }
+      return left;
+    }
+    function parseMulDiv(){
+      let left = parseUnary();
+      while(peek() && peek().type==='op' && (peek().value==='*' || peek().value==='/' || peek().value==='%')){
+        const op = next().value;
+        const right = parseUnary();
+        left = {type:'bin', op, left, right};
+      }
+      return left;
+    }
+    function parseUnary(){
+      if(peek() && peek().type==='op' && peek().value==='-'){
+        next();
+        return {type:'neg', val: parseUnary()};
+      }
+      if(peek() && peek().type==='op' && peek().value==='+'){
+        next();
+        return parseUnary();
+      }
+      return parsePow();
+    }
+    function parsePow(){
+      let left = parsePostfix();
+      if(peek() && peek().type==='op' && peek().value==='^'){
+        next();
+        const right = parseUnary();
+        return {type:'bin', op:'^', left, right};
+      }
+      return left;
+    }
+    function parsePostfix(){
+      let node = parseAtom();
+      while(peek() && peek().type==='op' && peek().value==='!'){
+        next();
+        node = {type:'fact', val: node};
+      }
+      return node;
+    }
+    function parseAtom(){
+      const t = peek();
+      if(!t) throw new Error('unexpected end');
+      if(t.type === 'num'){ next(); return {type:'num', value: t.value}; }
+      if(t.type === 'func'){
+        next();
+        if(!(peek() && peek().value === '(')) throw new Error('expected ( after function');
+        next();
+        const arg = parseExpr();
+        if(!(peek() && peek().value === ')')) throw new Error('expected )');
+        next();
+        return {type:'call', name: t.value, arg};
+      }
+      if(t.type === 'op' && t.value === '('){
+        next();
+        const inner = parseExpr();
+        if(!(peek() && peek().value === ')')) throw new Error('expected )');
+        next();
+        return inner;
+      }
+      throw new Error('unexpected token');
+    }
+
+    const result = parseExpr();
+    if(pos !== tokens.length) throw new Error('trailing input');
+    return result;
+  }
+
+  function factorial(n){
+    if(n < 0 || Math.floor(n) !== n) throw new Error('factorial domain');
+    if(n > 170) return Infinity;
+    let r = 1;
+    for(let k=2;k<=n;k++) r *= k;
+    return r;
+  }
+
+  function evalNode(node){
+    switch(node.type){
+      case 'num': return node.value;
+      case 'neg': return -evalNode(node.val);
+      case 'fact': return factorial(evalNode(node.val));
+      case 'bin': {
+        const l = evalNode(node.left), r = evalNode(node.right);
+        switch(node.op){
+          case '+': return l + r;
+          case '-': return l - r;
+          case '*': return l * r;
+          case '/':
+            if(r === 0) throw new Error('div by zero');
+            return l / r;
+          case '%': return l % r;
+          case '^': return Math.pow(l, r);
+        }
+      }
+      case 'call': {
+        const a = evalNode(node.arg);
+        const toRad = x => angleMode === 'deg' ? x * Math.PI / 180 : x;
+        switch(node.name){
+          case 'sin': return Math.sin(toRad(a));
+          case 'cos': return Math.cos(toRad(a));
+          case 'tan': return Math.tan(toRad(a));
+          case 'asin': { const v = Math.asin(a); return angleMode==='deg' ? v*180/Math.PI : v; }
+          case 'acos': { const v = Math.acos(a); return angleMode==='deg' ? v*180/Math.PI : v; }
+          case 'atan': { const v = Math.atan(a); return angleMode==='deg' ? v*180/Math.PI : v; }
+          case 'log': return Math.log10(a);
+          case 'ln': return Math.log(a);
+          case 'sqrt':
+            if(a < 0) throw new Error('sqrt domain');
+            return Math.sqrt(a);
+        }
+      }
+    }
+    throw new Error('eval error');
+  }
+
+  function formatResult(n){
+    if(!isFinite(n)) return n > 0 ? 'Infinity' : (n < 0 ? '-Infinity' : 'Error');
+    if(Number.isNaN(n)) return 'Error';
+    if(Math.abs(n) > 1e15 || (Math.abs(n) < 1e-10 && n !== 0)){
+      return n.toExponential(6);
+    }
+    let s = parseFloat(n.toFixed(10)).toString();
+    return s;
+  }
+
+  // ---------- history ----------
+  function addHistory(expression, result){
+    history.push({expression, result});
+    if(history.length > 50) history.shift();
+    renderHistory();
+  }
+  function renderHistory(){
+    if(history.length === 0){
+      histList.innerHTML = '<div class="hist-empty">Your calculations will appear here.<br>Tap any result to reuse it.</div>';
+      return;
+    }
+    histList.innerHTML = '';
+    history.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'hist-item';
+      div.innerHTML = `<div class="h-expr">${prettify(item.expression)}</div><div class="h-res">= ${item.result}</div>`;
+      div.addEventListener('click', () => {
+        expr = item.result.toString();
+        justEvaluated = false;
+        render();
+      });
+      histList.appendChild(div);
+    });
+    histList.scrollTop = 0;
+  }
+  document.getElementById('clearHist').addEventListener('click', () => {
+    history = [];
+    renderHistory();
+  });
+
+  // ---------- actions ----------
+  function insert(val){
+    if(justEvaluated){
+      if(/^[0-9.]$/.test(val)){
+        expr = '';
+      } else if(val !== '!' && val !== '%' && val !== '^'){
+        // keep result as basis for chained ops
+      }
+      justEvaluated = false;
+    }
+    expr += val;
+    render();
+  }
+
+  function doEquals(){
+    if(expr === '') return;
+    try{
+      const tokens = tokenize(expr);
+      const ast = parse(tokens);
+      const result = evalNode(ast);
+      const formatted = formatResult(result);
+      prevLine.textContent = prettify(expr) + ' =';
+      curLine.textContent = formatted;
+      addHistory(expr, formatted);
+      lastResult = parseFloat(formatted);
+      expr = formatted;
+      justEvaluated = true;
+    }catch(err){
+      curLine.textContent = 'Error';
+      justEvaluated = true;
+      expr = '';
+      setTimeout(render, 900);
+    }
+  }
+
+  function doClear(){
+    expr = '';
+    prevLine.textContent = '\u00A0';
+    justEvaluated = false;
+    render();
+  }
+  function doDelete(){
+    if(justEvaluated){ doClear(); return; }
+    expr = expr.slice(0, -1);
+    render();
+  }
+  function doPM(){
+    // wrap current trailing number in negation by prefixing with (- if empty, else toggle sign of whole expr via *-1 trick
+    if(expr === ''){ expr = '-'; }
+    else if(expr.startsWith('-(') && expr.endsWith(')')){
+      expr = expr.slice(2, -1);
+    } else {
+      expr = `-(${expr})`;
+    }
+    render();
+  }
+
+  document.querySelectorAll('[data-ins]').forEach(btn => {
+    btn.addEventListener('click', () => insert(btn.getAttribute('data-ins')));
+  });
+  document.querySelector('[data-act="eq"]').addEventListener('click', doEquals);
+  document.querySelector('[data-act="ac"]').addEventListener('click', doClear);
+  document.querySelector('[data-act="del"]').addEventListener('click', doDelete);
+  document.querySelector('[data-act="pm"]').addEventListener('click', doPM);
+
+  // ---------- angle mode ----------
+  const degBtn = document.getElementById('degBtn');
+  const radBtn = document.getElementById('radBtn');
+  function setAngle(mode){
+    angleMode = mode;
+    degBtn.classList.toggle('active', mode==='deg');
+    radBtn.classList.toggle('active', mode==='rad');
+  }
+  degBtn.addEventListener('click', () => setAngle('deg'));
+  radBtn.addEventListener('click', () => setAngle('rad'));
+
+  // ---------- memory ----------
+  function updateMemIndicator(){
+    memIndicator.classList.toggle('show', memory !== 0);
+  }
+  document.getElementById('mPlus').addEventListener('click', () => {
+    try{
+      const val = expr ? evalNode(parse(tokenize(expr))) : (lastResult ?? 0);
+      memory += val;
+      updateMemIndicator();
+    }catch(e){}
+  });
+  document.getElementById('mMinus').addEventListener('click', () => {
+    try{
+      const val = expr ? evalNode(parse(tokenize(expr))) : (lastResult ?? 0);
+      memory -= val;
+      updateMemIndicator();
+    }catch(e){}
+  });
+  document.getElementById('mr').addEventListener('click', () => {
+    insert(formatResult(memory));
+  });
+  document.getElementById('mc').addEventListener('click', () => {
+    memory = 0;
+    updateMemIndicator();
+  });
+
+  // ---------- keyboard support ----------
+  window.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if(/[0-9.]/.test(k)){ insert(k); return; }
+    if(['+','-','*','/','^','%','(',')'].includes(k)){ insert(k); return; }
+    if(k === 'Enter' || k === '='){ e.preventDefault(); doEquals(); return; }
+    if(k === 'Backspace'){ doDelete(); return; }
+    if(k === 'Escape'){ doClear(); return; }
+    if(k.toLowerCase() === 'p'){ insert('pi'); return; }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
